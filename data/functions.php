@@ -30,9 +30,6 @@ function record_insert($title, $artist, $price, $format_id): void {
     ':price' => $price,
     ':format_id' => $format_id
     ]);
-    if ($stmt->rowCount() > 0){
-        echo("Insert sucess: true, rows: 1");
-    }
 }
 
 ?>
