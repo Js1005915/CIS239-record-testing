@@ -1,4 +1,4 @@
-<h2>Unit Test 2 — Records JOIN</h2>
+<h2>Records</h2>
 <table>
         <tr>
             <th>Title</th>
