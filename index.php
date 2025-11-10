@@ -22,6 +22,37 @@ switch ($action) {
             $view = 'create'; // missing fields
         }
         break;
+    case 'edit':
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        if ($id) {
+            $record = record_get($id);
+            
+        }
+
+        $view = 'create';
+        break;
+    case 'update':
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $title = (string)filter_input(INPUT_POST, 'title', FILTER_UNSAFE_RAW);
+        $artist = (string)filter_input(INPUT_POST, 'artist', FILTER_UNSAFE_RAW);
+        $price_in = filter_input(INPUT_POST, 'price', FILTER_UNSAFE_RAW);
+        $format_id = filter_input(INPUT_POST, 'format_id', FILTER_VALIDATE_INT);
+
+        $price = is_numeric($price_in) ? (float)$price_in : null;
+
+        if ($id && $title !== '' && $artist !== '' && $price !== null && $format_id) {
+            record_update($id, $title, $artist, $price, $format_id);
+        }
+        $view = 'updated';
+        break;
+    case 'delete':
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+
+        if ($id) {
+            $deleted = record_delete($id);
+        }
+        $view = 'deleted';
+        break;
 }
 ?>
 
@@ -49,8 +80,11 @@ switch ($action) {
     elseif ($view === 'create')
         include __DIR__ . '/partials/record-form.php';
     elseif ($view === 'created')
-        include __DIR__ . '/partials/record-created.php'
-    
+        include __DIR__ . '/partials/record-created.php';
+    elseif ($view === 'updated')
+        include __DIR__ . '/partials/record-updated.php';
+    elseif ($view === 'deleted')
+        include __DIR__ . '/partials/record-deleted.php';
     ?>
 
 
