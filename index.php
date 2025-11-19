@@ -2,13 +2,125 @@
 
 use BcMath\Number;
 
-require __DIR__ . '/data/functions.php';
+#including the functions and db files
 
-$view = filter_input(INPUT_GET, 'view') ?: 'list';
+include __DIR__ . "/data/functions.php";
+
+session_start();
+
+#setting the view and action via INPUT_GET and INPUT_POST
+$view   = filter_input(INPUT_GET, 'view') ?: 'list';
 $action = filter_input(INPUT_POST, 'action');
 
+#checks if the session is empty
+function require_login(): void {
+    if (empty($_SESSION['user_id'])) {
+        header('Location: ?view=login');
+        exit;
+    }
+}
+
+$public_views   = ['login', 'register'];
+$public_actions = ['login', 'register'];
+
+#checks if the action is true and if the action is in the array of public actions
+if ($action && !in_array($action, $public_actions, true)) {
+    require_login();
+}
+#checks if the action is true and if the view is in the array of public views
+if (!$action && !in_array($view, $public_views, true)) {
+    require_login();
+}
 
 switch ($action) {
+    #when action is set to login, it gets the username and password from the post and then finds the user using the user_find_by_username function
+    #if the login is correct, it logs in, else it shows error messages
+    case 'login':
+    $username = trim((string)($_POST['username'] ?? ''));
+    $password = (string)($_POST['password'] ?? '');
+
+    if ($username && $password) {
+        $user = user_find_by_username($username);
+        if ($user && password_verify($password, $user['password_hash'])) {
+            $_SESSION['user_id'] = (int)$user['id'];
+            $_SESSION['full_name'] = $user['full_name'];
+            $view = 'list';
+        } else {
+            $login_error = "Invalid username or password.";
+            $view = 'login';
+        }
+    } else {
+        $login_error = "Enter both fields.";
+        $view = 'login';
+    }
+    break;
+
+    case 'logout':
+        $_SESSION = [];
+        session_destroy();
+        session_start();
+        $view = 'login';
+        break;
+    
+    #gets the username, fullname, password and confirmed password from the post, if they are all inputted and password is the same as the confirmed password
+    #it creates a user using the user_create function and hashes the password, then it puts the user info in the navbar
+    case 'register':
+        $username  = trim((string)($_POST['username'] ?? ''));
+        $full_name = trim((string)($_POST['full_name'] ?? ''));
+        $password  = (string)($_POST['password'] ?? '');
+        $confirm   = (string)($_POST['confirm_password'] ?? '');
+
+        if ($username && $full_name && $password && $password === $confirm) {
+            $existing = user_find_by_username($username);
+            if ($existing) {
+                $register_error = "That username already exists.";
+                $view = 'register';
+            } else {
+                $hash = password_hash($password, PASSWORD_DEFAULT);
+                user_create($username, $full_name, $hash);
+
+                $user = user_find_by_username($username);
+                $_SESSION['user_id'] = (int)$user['id'];
+                $_SESSION['full_name'] = $user['full_name'];
+                $view = 'list';
+            }
+        } else {
+            $register_error = "Complete all fields and match passwords.";
+            $view = 'register';
+        }
+        break;
+
+
+    #requires a login, then if a record is inputted, it puts the record by its record_id into the cart session
+    #also checks if the cart session was started at all
+    case 'add_to_cart':
+        require_login();
+        $record_id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+
+        if ($record_id) {
+            if (!isset($_SESSION['cart'])) {
+                $_SESSION['cart'] = [];
+            }
+            $_SESSION['cart'][] = $record_id;
+        }
+        $view = 'list';
+        break;
+
+    #requires a login, gets the cart ids from the cart session and creates a purchase for each card id
+    #if it works, it switches the view to checkout_success 
+    case 'checkout':
+        require_login();
+        $cart_ids = $_SESSION['cart'] ?? [];
+
+        if ($cart_ids) {
+            foreach ($cart_ids as $rid) {
+                purchase_create((int)$_SESSION['user_id'], (int)$rid);
+            }
+            $_SESSION['cart'] = [];
+        }
+        $view = 'checkout_success';
+        break;
+
     case 'create':
         $title = trim((string)(filter_input(INPUT_POST, 'title') ?? ''));
         $artist = trim((string)(filter_input(INPUT_POST, 'artist') ?? ''));
@@ -54,6 +166,10 @@ switch ($action) {
         $view = 'deleted';
         break;
 }
+if ($view === 'cart') {
+    $cart_ids = $_SESSION['cart'] ?? [];
+    $records_in_cart = records_by_ids($cart_ids);
+}
 ?>
 
 
@@ -75,7 +191,20 @@ switch ($action) {
 
 
     <?php 
-    if ($view === 'list')
+    #the below code checks the view variable and if it is set to a keyword, changes the page to include the partial responding to that keyword
+    if ($view === 'login') {
+        include __DIR__ . '/partials/login_form.php';
+    }
+    elseif ($view === 'register') {
+        include __DIR__ . '/partials/register_form.php';
+    }
+    elseif ($view === 'cart') {
+        include __DIR__ . '/partials/cart.php';
+    }
+    elseif ($view === 'checkout_success') {
+        include __DIR__ . '/partials/checkout_success.php';
+    }
+    elseif ($view === 'list')
         include __DIR__ . '/partials/records-list.php';
     elseif ($view === 'create')
         include __DIR__ . '/partials/record-form.php';
